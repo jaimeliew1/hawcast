@@ -22,7 +22,8 @@ def jess(htc_dir, dest=None):
         backend.htc2pbs(os.path.join(htc_dir, file), pbs_template)
 
 
-
+def bat(htc_dir, dest=None):
+    pass
 def postproc(res_dir):
     pass
 
@@ -77,7 +78,10 @@ class Hawcast_parser(object):
         jess(args.htc_dir)
 
 
+    def bat(self):
+        pass
 
+        
     def launch(self):
         pass
 
