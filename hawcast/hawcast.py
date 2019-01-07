@@ -1,13 +1,26 @@
 #!/usr/bin/env python
 import argparse
 import sys
+import os
+from hawcast import backend
 
-def htc(definition, dest=None, master=None):
-    pass
+def htc(definition, dest=None, master_fn=None):
+    if master_fn == None:
+        master_fn = os.path.join('htc/_master',
+        os.path.splitext(os.path.basename(definition))[0] + '.htc')
+    case = backend.Case(definition)
+    print('Creating {} htc files...'.format(len(case.tags)))
+    backend.generate_htc_files(case.tags, master_fn)
 
 
 def jess(htc_dir, dest=None):
-    pass
+    pbs_template = os.path.join(os.path.dirname(__file__), 'pbs_template.p')
+
+    htc_files = [x for x in os.listdir(htc_dir) if x.endswith('.htc')]
+    print('Creating {} .p files...'.format(len(htc_files)))
+    for file in htc_files:
+        backend.htc2pbs(os.path.join(htc_dir, file), pbs_template)
+
 
 
 def postproc(res_dir):
@@ -48,6 +61,7 @@ class Hawcast_parser(object):
         # TWO argvs, ie the command (hawcast.pu) and the subcommand (htc)
         args = parser.parse_args(sys.argv[2:])
         print('Running hawcast.py htc...')
+        htc(args.definition, master_fn=args.master)
 
 
 
@@ -57,8 +71,10 @@ class Hawcast_parser(object):
             description='Generates launch scripts for jess HPC')
         # NOT prefixing the argument with -- means it's not optional
         #parser.add_argument('repository')
+        parser.add_argument('htc_dir', help='Relative filepath to htc folder')
         args = parser.parse_args(sys.argv[2:])
         print('Running hawcast.py jess...')
+        jess(args.htc_dir)
 
 
 
@@ -69,5 +85,11 @@ class Hawcast_parser(object):
 
     def postproc(self):
         pass
-if __name__ == '__main__':
+
+def main():
+    print()
     Hawcast_parser()
+
+
+if __name__ == '__main__':
+    main()
