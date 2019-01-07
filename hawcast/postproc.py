@@ -82,13 +82,66 @@ class HAWC2Res(object):
         df = pd.DataFrame(mean)
         # add multi index columns
         col_ch     = list(channels.keys())
-        col_stat   = ['mean']*len(col_ch)
+        col_stat   = ['Mean']*len(col_ch)
         col_tuples = list(zip(*[col_ch, col_stat]))
         df.columns = pd.MultiIndex.from_tuples(col_tuples,
                     names=['channel', 'stat'])
 
         self.dat = self.dat.join(df)
         return self
+
+
+    def add_var(self, channels=None):
+        print('Calculating variance...')
+        var = []
+        if channels is None:
+            channels = self.channels
+        else:
+            channels = {k:v for k,v in self.channels.items() if k in channels}
+        N = len(self.filenames)
+        for i, fn in enumerate(self.filenames):
+            print(f'\r{i+1}/{N}', end='')
+            var.append(readHawc2Res(os.path.join(self.directory, fn), channels).var().values)
+        print()
+        df = pd.DataFrame(var)
+        # add multi index columns
+        col_ch     = list(channels.keys())
+        col_stat   = ['Var']*len(col_ch)
+        col_tuples = list(zip(*[col_ch, col_stat]))
+        df.columns = pd.MultiIndex.from_tuples(col_tuples,
+                    names=['channel', 'stat'])
+
+        self.dat = self.dat.join(df)
+        return self
+
+
+
+    def add_final(self, channels=None):
+        print('Calculating final value...')
+        final = []
+        if channels is None:
+            channels = self.channels
+        else:
+            channels = {k:v for k,v in self.channels.items() if k in channels}
+        N = len(self.filenames)
+        for i, fn in enumerate(self.filenames):
+            print(f'\r{i+1}/{N}', end='')
+            final.append(readHawc2Res(os.path.join(self.directory, fn), channels).iloc[-1].values)
+        print()
+        df = pd.DataFrame(final)
+        # add multi index columns
+        col_ch     = list(channels.keys())
+        col_stat   = ['final']*len(col_ch)
+        col_tuples = list(zip(*[col_ch, col_stat]))
+        df.columns = pd.MultiIndex.from_tuples(col_tuples,
+                    names=['channel', 'stat'])
+
+        self.dat = self.dat.join(df)
+        return self
+
+
+
+
 
     def add_DEL(self, channels, m=4):
         print(f'Calculating 1 Hz DEL for m={m}...')

@@ -101,8 +101,9 @@ class Hawcast_parser(object):
     def postproc(self):
         pass
 
+
+
 def main():
-    print()
     Hawcast_parser()
 
 

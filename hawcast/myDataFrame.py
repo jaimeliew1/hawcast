@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 class myDataFrame(pd.DataFrame):
     ''' A modified pandas dataframe that can be called. The call function filters and
