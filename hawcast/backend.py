@@ -1,16 +1,18 @@
+import os, sys, zipfile, importlib
 import numpy as np
 import pandas as pd
-import os, sys
-import importlib
 import re as magic
 from itertools import product
+
 from wetb.hawc2.htc_file import HTCFile
 from wetb.fatigue_tools.fatigue import eq_load
-import zipfile
+
+from .myDataFrame import myDataFrame
+
 
 
 def import_path(fullpath):
-    """ Import a file from an arbitrary filepath
+    """ Import a python script as a module from an arbitrary filepath
     """
     path, filename = os.path.split(fullpath)
     filename, ext  = os.path.splitext(filename)
@@ -21,45 +23,17 @@ def import_path(fullpath):
 
 
 
-def check_definition(definition_fn, master_fn):
-    imported = import_path(definition_fn)
+def htc2bat(htc_dir, n=1, filter='all', app='hawc2mb'):
 
-    with open(master_fn) as f:
-        template = f.read()
-
-    template_keys = set(magic.findall('\{(.*?)\}', template))
-    definition_keys =   list(imported.Constants.keys()) + \
-                        list(imported.Variables.keys()) + \
-                        list(imported.Functions.keys())
-
-    print('in definition but not in template:')
-    for key in template_keys:
-        if key not in definition_keys: print(key)
-    print('in template but not in definition:')
-    for key in definition_keys:
-        if key not in template_keys: print(key)
-
-
-
-def makeBat(case, N=1, filter='all', bit64=False):
-
-    if filter == 'all':
-        toRun = []
-    for tags in case.iter_tags():
-        toRun.append('htc\\' + tags.casename + '\\' + tags.case_id + '.htc')
-
-
-    bat_dir = 'bat\\'
+    htc_files = [os.path.join(htc_dir, x) for x in os.listdir(htc_dir) if x.endswith('.htc')]
+    bat_dir = 'bat'
     if not os.path.exists(bat_dir):
         os.makedirs(bat_dir)
-    chunks = chunkify(toRun, N)
 
-    if bit64:
-        app = 'hawc2mb_64'
-    else:
-        app = 'hawc2mb'
+    chunks = chunkify(htc_files, n)
+
     for i, chunk in enumerate(chunks):
-        with open(bat_dir + '{}.bat'.format(i), 'w') as f:
+        with open(os.path.join(bat_dir, f'{i+1}.bat'), 'w') as f:
             f.write('cd ..\n')
             for file in chunk:
                 f.write(f'{app} {file}\n')
@@ -109,10 +83,6 @@ def readHawc2Res(filename, channels=None):
     #pandas dataframe. Variable names and channels are defined in a dictionary
     # called channels
 
-    if channels is None:
-        raise NotImplementedError()
-
-
     #read .sel file
     with open(filename + '.sel') as f:
         lines = f.readlines()
@@ -122,12 +92,15 @@ def readHawc2Res(filename, channels=None):
     Format          = lines[8].split()[3]
     scaleFactor     = [float(x) for x in lines[NCh+14:]]
 
+    if channels is None:
+        channels = {str(i):i for i in range(NCh)}
+
     #read .bin file
     data = {}
     fid = open(filename + '.dat', 'rb')
-    for key,ch in channels.items():
+    for key, ch in channels.items():
         fid.seek((ch-1)*NSc*2)
-        data[key] = np.fromfile(fid,'int16',NSc) * scaleFactor[ch-1]
+        data[key] = np.fromfile(fid, 'int16', NSc) * scaleFactor[ch-1]
 
     out = pd.DataFrame(data)
     return out
@@ -148,13 +121,6 @@ class Seed(object):
         self.res  = 'res/' + self.tags.casename + '/' + self.tags.case_id + '.sel'
         self.postproc = 'postproc/' + self.tags.casename + '/' + self.tags.case_id
 
-        #self.parent = parent
-        #self.filepath = filepath # filepath to the result file. !!! what about htc file?
-        #self.att = row
-
-
-        for att in self.definition.key_tags:#self.parent.input_attributes:
-            setattr(self, att, row[att])
 
     def loadData(self):
         try:
@@ -165,25 +131,9 @@ class Seed(object):
 
         return data
 
-    def status(self):
-        if os.path.getmtime(self.definition.filepath) > os.path.getmtime(self.htc):
-            return 'htc unsyncronised'
-        if os.path.getmtime(self.definition.filepath) > os.path.getmtime(self.res):
-            return 'results unsyncronised'
-        else:
-            return 'Syncronised'
 
     def __repr__(self):
         return('Seed {}'.format(self.tags.case_id))
-
-    def __eq__(self, other):
-        return False
-
-
-    def analysis(self):
-        pass
-
-
 
 
 
@@ -191,16 +141,13 @@ class Case(object):
     # a base class that holds the simulation definitions
     def __init__(self, definition):
 
-        self.Definition = self.add_definition(definition)
-        self.tags = self.Definition.tags
+        #self.Definition = self.add_definition(definition)
+        self.Def = import_path(definition)
+        self.tags = self.gen_tags(self.Def.Constants, self.Def.Variables, self.Def.Functions)
 
         self.seeds = []
-        for _, row in self.Definition.tags.iterrows():
-            self.seeds.append(Seed(self.Definition, row))
-#        for _, row in self.tags.iterrows():
-#            filename = 'res/' + row.casename + '/' + row.case_id
-#            self.seeds.append(Seed(self, filename, row))
-#
+        for _, row in self.Def.tags.iterrows():
+            self.seeds.append(Seed(self.Def, row))
 
     def __repr__(self):
         return self.tags.__repr__()
@@ -209,22 +156,9 @@ class Case(object):
             yield from self.seeds
 
     def __call__(self, **kwargs):
-        mask = self.mask(**kwargs)
+        mask = self.tags(**kwargs)
         return [i for (i, v) in zip(self.seeds, mask) if v]
 
-#
-
-    def add_definition(self, filename):
-        # assert filename.lower().endswith('.py')
-        def_mod = import_path(filename)
-        def_mod.tags = self.gen_tags(def_mod.Constants, def_mod.Variables, def_mod.Functions)
-        def_mod.filepath = filename
-
-        if hasattr(def_mod, 'masterfile'):
-            pass
-        if hasattr(def_mod, 'key_tags'): # TODO get rid of this
-            self.input_attributes = def_mod.key_tags
-        return def_mod
 
 
     def iter_tags(self, **kwargs):
@@ -270,87 +204,6 @@ class Case(object):
 
 
 
-
-    def crawl(self, crawlfunc, **kwargs):
-        # TODO: think about how to make this cleaner
-        big_dict = {}
-        for att, data in self.iter_results(**kwargs):
-            if data is None:
-                continue
-            this_dict = att.to_dict()
-            out_dict = crawlfunc(data)
-            this_dict.update(out_dict)
-
-            # !!! This loop could case issues. Assumes keys in att, out_dict are
-            # always the same.
-            for key, val in this_dict.items():
-                if key not in big_dict.keys():
-                    big_dict[key] = []
-                big_dict[key].append(val)
-
-        return myDataFrame(big_dict)
-
-
-
-    def _mask(self, df, **kwargs):
-
-        '''
-        Returns a mask for refering to a dataframe, or self.Data, or self.Data_f, etc.
-        example. dlc.mask(wsp=[12, 14], controller='noIPC')
-        '''
-        N = len(df)
-        mask = [True] * N
-        for key, value in kwargs.items():
-            if isinstance(value, (list, tuple, np.ndarray)):
-                mask_temp = [False] * N
-                for v in value:
-                    mask_temp = mask_temp | (df[key] == v)
-                mask = mask & mask_temp
-            else: #scalar, or single value
-                mask = mask & (df[key] == value)
-        return mask
-
-    def mask(self, **kwargs):
-        return self._mask(self.tags, **kwargs)
-
-
-class Generator(Case):
-    pass
-
-class Reader(Case):
-    pass
-
-
-class myDataFrame(pd.DataFrame):
-    ''' A modified pandas dataframe that can be called. The call function filters and
-    returns the rows which meet the conditions set by the keyword arguments in
-    the call.'''
-
-    @property
-    def _constructor(self):
-        return myDataFrame
-
-
-    def __call__(self, **kwargs):
-        return self[self._mask( **kwargs)]
-
-
-    def _mask(self, **kwargs):
-        '''
-        Returns a mask for refering to a dataframe, or self.Data, or self.Data_f, etc.
-        example. dlc.mask(wsp=[12, 14], controller='noIPC')
-        '''
-        N = len(self)
-        mask = [True] * N
-        for key, value in kwargs.items():
-            if isinstance(value, (list, tuple, np.ndarray)):
-                mask_temp = [False] * N
-                for v in value:
-                    mask_temp = mask_temp | (self[key] == v)
-                mask = mask & mask_temp
-            else: #scalar, or single value
-                mask = mask & (self[key] == value)
-        return mask
 
 
 

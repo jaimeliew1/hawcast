@@ -22,8 +22,12 @@ def jess(htc_dir, dest=None):
         backend.htc2pbs(os.path.join(htc_dir, file), pbs_template)
 
 
-def bat(htc_dir, dest=None):
-    pass
+def bat(htc_dir, n=1, dest=None):
+    n_htc = len([x for x in os.listdir(htc_dir) if x.endswith('.htc')])
+    print(f'Creating {n} bat files for {n_htc} htc files...')
+    backend.htc2bat(htc_dir, n)
+
+
 def postproc(res_dir):
     pass
 
@@ -79,9 +83,16 @@ class Hawcast_parser(object):
 
 
     def bat(self):
-        pass
+        parser = argparse.ArgumentParser(
+            description='Generates bat launch files from htc files.',
+            usage='''hawcast <htc-dir> [--n]''')
+        parser.add_argument('htc_dir', help='Relative filepath to htc folder')
+        parser.add_argument('--n', help='Number of bat files (default=1)', default=1, type=int)
+        args = parser.parse_args(sys.argv[2:])
+        print('Running creating bat files...')
+        bat(args.htc_dir, args.n)
 
-        
+
     def launch(self):
         pass
 

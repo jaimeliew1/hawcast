@@ -8,7 +8,8 @@ Created on 2019-01-07
 import re, os, sys
 import numpy as np
 import pandas as pd
-from .backend import readHawc2Res, myDataFrame
+from .backend import readHawc2Res
+from .myDataFrame import myDataFrame
 from wetb.fatigue_tools.fatigue import eq_load
 
 
