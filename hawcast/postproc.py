@@ -67,86 +67,13 @@ class HAWC2Res(object):
         return re.compile(pattern_string), fields
 
 
-    def add_mean(self, channels=None):
-        print('Calculating mean...')
-        mean = []
-        if channels is None:
-            channels = self.channels
-        else:
-            channels = {k:v for k,v in self.channels.items() if k in channels}
-        N = len(self.filenames)
-        for i, fn in enumerate(self.filenames):
-            print(f'\r{i+1}/{N}', end='')
-            mean.append(readHawc2Res(os.path.join(self.directory, fn), channels).mean().values)
-        print()
-        df = pd.DataFrame(mean)
-        # add multi index columns
-        col_ch     = list(channels.keys())
-        col_stat   = ['Mean']*len(col_ch)
-        col_tuples = list(zip(*[col_ch, col_stat]))
-        df.columns = pd.MultiIndex.from_tuples(col_tuples,
-                    names=['channel', 'stat'])
-
-        self.dat = self.dat.join(df)
-        return self
-
-
-    def add_var(self, channels=None):
-        print('Calculating variance...')
-        var = []
-        if channels is None:
-            channels = self.channels
-        else:
-            channels = {k:v for k,v in self.channels.items() if k in channels}
-        N = len(self.filenames)
-        for i, fn in enumerate(self.filenames):
-            print(f'\r{i+1}/{N}', end='')
-            var.append(readHawc2Res(os.path.join(self.directory, fn), channels).var().values)
-        print()
-        df = pd.DataFrame(var)
-        # add multi index columns
-        col_ch     = list(channels.keys())
-        col_stat   = ['Var']*len(col_ch)
-        col_tuples = list(zip(*[col_ch, col_stat]))
-        df.columns = pd.MultiIndex.from_tuples(col_tuples,
-                    names=['channel', 'stat'])
-
-        self.dat = self.dat.join(df)
-        return self
-
-
-
-    def add_final(self, channels=None):
-        print('Calculating final value...')
-        final = []
-        if channels is None:
-            channels = self.channels
-        else:
-            channels = {k:v for k,v in self.channels.items() if k in channels}
-        N = len(self.filenames)
-        for i, fn in enumerate(self.filenames):
-            print(f'\r{i+1}/{N}', end='')
-            final.append(readHawc2Res(os.path.join(self.directory, fn), channels).iloc[-1].values)
-        print()
-        df = pd.DataFrame(final)
-        # add multi index columns
-        col_ch     = list(channels.keys())
-        col_stat   = ['final']*len(col_ch)
-        col_tuples = list(zip(*[col_ch, col_stat]))
-        df.columns = pd.MultiIndex.from_tuples(col_tuples,
-                    names=['channel', 'stat'])
-
-        self.dat = self.dat.join(df)
-        return self
-
-
-
-
-
-    def add_DEL(self, channels, m=4):
-        print(f'Calculating 1 Hz DEL for m={m}...')
-        print(', '.join(ch for ch in channels))
-        DEL = []
+    def _add_stat(self, func, stat_name, channels=None):
+        '''
+        Adds a column of statistics for the given channels using the given function.
+        The function should take a pandas series (1d array) and return a float.
+        '''
+        print(f'Calculating {stat_name} for {channels}...')
+        values = []
         if channels is None:
             channels = self.channels
         else:
@@ -155,20 +82,46 @@ class HAWC2Res(object):
         for i, fn in enumerate(self.filenames):
             print(f'\r{i+1}/{N}', end='')
             raw = readHawc2Res(os.path.join(self.directory, fn), channels)
-            DEL.append([])
-            for k in channels.keys():
-                DEL[-1].append(eq_load(raw[k].values, m=m)[0][0])
+            values.append(func(raw))
         print()
-        df = pd.DataFrame(DEL)
+        df = pd.DataFrame(values)
         # add multi index columns
         col_ch     = list(channels.keys())
-        col_stat   = ['DEL']*len(col_ch)
+        col_stat   = [stat_name]*len(col_ch)
         col_tuples = list(zip(*[col_ch, col_stat]))
         df.columns = pd.MultiIndex.from_tuples(col_tuples,
                     names=['channel', 'stat'])
 
         self.dat = self.dat.join(df)
         return self
+
+
+
+    def add_mean(self, channels=None):
+        func = lambda x: x.mean().values
+        return self._add_stat(func, 'Mean', channels)
+
+
+    def add_var(self, channels=None):
+        func = lambda x: x.var().values
+        return self._add_stat(func, 'Var', channels)
+
+
+    def add_final(self, channels=None):
+        func = lambda x: x.iloc[-1].values
+        return self._add_stat(func, 'final', channels)
+
+
+    def add_DEL(self, channels, m=4):
+        def func(x):
+            DEL = []
+            for k in channels:
+                DEL.append(eq_load(x[k].values, m=m)[0][0])
+            return DEL
+
+        return self._add_stat(func, 'DEL', channels)
+
+
 
     def mean_over_row(self, key):
         # used for taking the mean over all seeds
