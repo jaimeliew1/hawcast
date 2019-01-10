@@ -36,8 +36,9 @@ def jess(htc_dir, dest=None):
 
     htc_files = [x for x in os.listdir(htc_dir) if x.endswith('.htc')]
     print('Creating {} .p files...'.format(len(htc_files)))
-    for file in htc_files:
-        backend.htc2pbs(os.path.join(htc_dir, file), pbs_template)
+    with click.progressbar(htc_files) as bar:
+        for file in bar:
+            backend.htc2pbs(os.path.join(htc_dir, file), pbs_template)
 
 
 

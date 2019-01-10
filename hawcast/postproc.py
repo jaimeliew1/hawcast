@@ -8,6 +8,7 @@ Created on 2019-01-07
 import re, os, sys
 import numpy as np
 import pandas as pd
+import click
 from .backend import readHawc2Res
 from .myDataFrame import myDataFrame
 from wetb.fatigue_tools.fatigue import eq_load
@@ -90,18 +91,19 @@ class HAWC2Res(object):
         Adds a column of statistics for the given channels using the given function.
         The function should take a pandas series (1d array) and return a float.
         '''
-        print(f'Calculating {stat_name} for {channels}...')
+        channel_string = ', '.join(channels)
+        print(f'Calculating {stat_name} for {channel_string}...')
         values = []
         if channels is None:
             channels = self.channels
         else:
             channels = {k:v for k,v in self.channels.items() if k in channels}
         N = len(self.filenames)
-        for i, fn in enumerate(self.filenames):
-            print(f'\r{i+1}/{N}', end='')
-            raw = readHawc2Res(os.path.join(self.directory, fn), channels)
-            values.append(func(raw))
-        print()
+        with click.progressbar(self.filenames) as bar:
+            for fn in bar:
+                raw = readHawc2Res(os.path.join(self.directory, fn), channels)
+                values.append(func(raw))
+
         df = pd.DataFrame(values)
         # add multi index columns
         col_ch     = list(channels.keys())
@@ -149,11 +151,11 @@ class HAWC2Res(object):
         in_atts = self.dat[in_fields].drop_duplicates()
         new_dat = []
         N = len(in_atts)
-        for i, (_, x) in enumerate(in_atts.iterrows()):
-            print(f'\r{i+1}/{N}', end='')
-            filt = {k[0]: v for k, v in dict(x).items()}
-            new_dat.append(list(x) + list(self.dat(**filt)[out_fields].mean().values))
-        print()
+        with click.progressbar(in_atts.iterrows()) as bar:
+            for _, x in bar:
+                filt = {k[0]: v for k, v in dict(x).items()}
+                new_dat.append(list(x) + list(self.dat(**filt)[out_fields].mean().values))
+
         self.dat = myDataFrame(new_dat)
         # add multi index columns
         col_ch     = in_fields + [x[0] for x in out_fields]
