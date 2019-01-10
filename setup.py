@@ -13,5 +13,5 @@ setup(name                 = 'hawcast',
       zip_safe             = False,
       include_package_date = True,
       entry_points         = {
-        'console_scripts': ['hawcast=hawcast.hawcast:main']},
+        'console_scripts': ['hawcast=hawcast.hawcast:cli']},
 )

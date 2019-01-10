@@ -146,7 +146,7 @@ class Case(object):
         self.tags = self.gen_tags(self.Def.Constants, self.Def.Variables, self.Def.Functions)
 
         self.seeds = []
-        for _, row in self.Def.tags.iterrows():
+        for _, row in self.tags.iterrows():
             self.seeds.append(Seed(self.Def, row))
 
     def __repr__(self):
