@@ -2,9 +2,14 @@ language: python
 python:
   - "3.6"
 
+before_install:
+  - conda install setuptools_scm future h5py pytables pytest pytest-cov nose sphinx blosc pbr paramiko
+  - conda install scipy pandas matplotlib cython xlrd coverage xlwt openpyxl psutil
+  - conda install -c conda-forge pyscaffold sshtunnel --no-deps
+  - pip install wetb --upgrade --no-deps
 # command to install dependencies
 install:
-  - pip3 install future
+
   - pip install .
 # command to run tests
 script:
