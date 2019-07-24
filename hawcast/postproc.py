@@ -101,8 +101,12 @@ class HAWC2Res(object):
         N = len(self.filenames)
         with click.progressbar(self.filenames) as bar:
             for fn in bar:
-                raw = readHawc2Res(os.path.join(self.directory, fn), channels)
-                values.append(func(raw))
+                try:
+                    raw = readHawc2Res(os.path.join(self.directory, fn), channels)
+                    values.append(func(raw))
+                except:
+                     print(f'File {fn} could not be loaded.')
+                     values.append([np.nan]*len(channels))
 
         df = pd.DataFrame(values)
         # add multi index columns
@@ -125,6 +129,11 @@ class HAWC2Res(object):
     def add_var(self, channels=None):
         func = lambda x: x.var().values
         return self._add_stat(func, 'Var', channels)
+
+
+    def add_std(self, channels=None):
+        func = lambda x: x.std().values
+        return self._add_stat(func, 'Std', channels)
 
 
     def add_final(self, channels=None):
