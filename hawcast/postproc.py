@@ -76,7 +76,9 @@ class HAWC2Res(object):
     def __repr__(self):
         return self.dat.__repr__()
 
-
+    def __len__(self):
+        return(len(self.dat))
+        
     @staticmethod
     def _compile_pattern(pattern_string):
         brackets = re.compile('{(.*?)}')
@@ -186,6 +188,10 @@ class HAWC2Res(object):
             self.dat[(key_root, stat)] = self.dat[keys].mean(axis=1)
         return self
 
+    def sort_by(self, key):
+        self.dat = self.dat.sort_values(key)
+        return self
+        
     def sort_columns(self):
         # sorts the columns so that input attributes are first, then output
         # attributes grouped by channel. # TODO
