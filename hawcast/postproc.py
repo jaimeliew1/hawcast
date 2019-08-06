@@ -30,6 +30,12 @@ def read_csv(filename):
     return df
 
 
+def isFloat(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
 
 
 class HAWC2Res(object):
@@ -57,7 +63,7 @@ class HAWC2Res(object):
         # Extract input attributes and put in dataframe
         self.dat = []
         for fn in self.filenames:
-            self.dat.append([float(x) if x.isnumeric() else x for x in pattern.findall(fn)[0]])
+            self.dat.append([float(x) if isFloat(x) else x for x in pattern.findall(fn)[0]])
         self.dat = myDataFrame(self.dat)
 
         # set column multi index
@@ -166,7 +172,7 @@ class HAWC2Res(object):
             for _, x in bar:
                 filt = {k[0]: v for k, v in dict(x).items()}
                 new_dat.append(list(x) + list(self.dat(**filt)[out_fields].mean().values))
-
+                
         self.dat = myDataFrame(new_dat)
         # add multi index columns
         col_ch     = in_fields + [x[0] for x in out_fields]
