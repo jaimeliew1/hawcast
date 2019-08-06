@@ -57,7 +57,7 @@ class HAWC2Res(object):
         # Extract input attributes and put in dataframe
         self.dat = []
         for fn in self.filenames:
-            self.dat.append([float(x) for x in pattern.findall(fn)[0]])
+            self.dat.append([float(x) if x.isnumeric() else x for x in pattern.findall(fn)[0]])
         self.dat = myDataFrame(self.dat)
 
         # set column multi index
