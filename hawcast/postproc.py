@@ -213,7 +213,7 @@ class wetbAccessor(object):
             if not keys:
                 continue
             self._obj[(key_root, stat)] = self._obj[keys].mean(axis=1)
-        return self
+        return self._obj
 
     
     @staticmethod
