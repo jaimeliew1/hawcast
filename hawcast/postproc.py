@@ -84,7 +84,7 @@ class wetbAccessor(object):
         # get all filenames that fit the pattern
         self._filenames = [x[:-4] for x in os.listdir(directory) if x.endswith('.sel')]
         self._filenames = [x for x in self._filenames if pattern.match(x)]
-
+        
         self.channels = channels
         # Extract input attributes and put in dataframe
         dat = []
@@ -93,8 +93,9 @@ class wetbAccessor(object):
         dat = pd.DataFrame(dat)
         
         # set column multi index
-        column_tuples = list(zip(*[self._fields, ['']*len(self._fields)]))
-        dat.columns = pd.MultiIndex.from_tuples(column_tuples, names=['channel', 'stat'])
+        if not dat.empty:
+            column_tuples = list(zip(*[self._fields, ['']*len(self._fields)]))
+            dat.columns = pd.MultiIndex.from_tuples(column_tuples, names=['channel', 'stat'])
         return dat
     
     @classmethod    
@@ -213,7 +214,7 @@ class wetbAccessor(object):
             if not keys:
                 continue
             self._obj[(key_root, stat)] = self._obj[keys].mean(axis=1)
-        return self._obj
+        return self
 
     
     @staticmethod
